@@ -105,8 +105,7 @@ char* makeFrame(int* data) {
 
 string int_to_hex(int num) {
     char* result = new char;
-    cout << "Number to convert: " << num << endl;
-    
+
     if (num < 10)
         sprintf(result, "0%x", num);
     else
