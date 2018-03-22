@@ -5,6 +5,7 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <string.h>
+#include <string>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
@@ -14,21 +15,19 @@
 using namespace std;
 
 int sendMessage(char* message);
-char* makeFrame(int* data);
+char* makeFrame(char* data);
 string int_to_hex(int n);
-int* readArduino();
+char* readArduino();
 
 
 int main() {    
-    int* data;
+    char* data;
     char* request_frame;
 
     // ** Wait until we have some input from arduino **
-    // data = readArduino();
+    data = readArduino();
 
     request_frame = makeFrame(data);
-
-    cout << "Constructed Frame to be sent:\n" << request_frame << endl;
 
     // Send frame as request to AWS server
     sendMessage(request_frame);
@@ -66,7 +65,7 @@ int sendMessage(char* message) {
     return 0;
 }
 
-char* makeFrame(int* data) {
+char* makeFrame(char* data) {
     // Current date/time based on current system
     time_t now = time(0);
     // Convert now to tm struct
@@ -76,13 +75,21 @@ char* makeFrame(int* data) {
     string request_frame = "c0";
     // Device ID
     // ** Change for ID from data **
-    request_frame += "e2a11e11";
+
+    char tmp[1];
+    tmp[0] = data[0];
+    int tmp_1 = atoi(tmp)*10;    
+    tmp[0] = data[1];
+    int tmp_2 = atoi(tmp)*1;    
+    int id = tmp_1 + tmp_2;
+
+    request_frame += int_to_hex(id);
     // Command
     // Only one command at the time
     request_frame += "01";
     // Package Length
     // Will remain the same size with only one command
-    request_frame += "16";
+    request_frame += "13";
 
     // Convert date and time to string
     request_frame += int_to_hex((1900 + ltm->tm_year)-2000);
@@ -94,11 +101,29 @@ char* makeFrame(int* data) {
 
     // Coordinates
     // ** Change with coordinates from data **
-    request_frame += "01020304";
+
+    // Coordinates X and Y (module location)
+    request_frame += "0102";
+    // Coordinate X (destination)
+    tmp[0] = data[2];
+    tmp_1 = atoi(tmp)*10;    
+    tmp[0] = data[3];
+    tmp_2 = atoi(tmp)*1;    
+    int coord_x = tmp_1 + tmp_2;
+    request_frame += int_to_hex(coord_x);
+    //Coordinate Y (destination)
+    tmp[0] = data[4];
+    tmp_1 = atoi(tmp)*10;    
+    tmp[0] = data[5];
+    tmp_2 = atoi(tmp)*1;    
+    int coord_y = tmp_1 + tmp_2;    
+    request_frame += int_to_hex(coord_y);
 
     // Convert String to char array
     char* final_frame = new char[request_frame.length()];
     strcpy(final_frame, request_frame.c_str());
+
+    cout << "\nConstructed Frame to be sent:\n" << request_frame << endl;
 
     return final_frame;
 }
@@ -106,7 +131,7 @@ char* makeFrame(int* data) {
 string int_to_hex(int num) {
     char* result = new char;
 
-    if (num < 10)
+    if (num < 16)
         sprintf(result, "0%x", num);
     else
         sprintf(result, "%x", num);
@@ -114,10 +139,12 @@ string int_to_hex(int num) {
     return string(result);
 }
 
-int* readArduino() {
+char* readArduino() {
     FILE *file;
     int c, i = 0;
-    int* data = new int[7];
+    int* data = new int[20];
+    char* data_final = new char[7];
+    char* tmp = new char;
 
     file = fopen("/dev/ttyACM0","rb");  // Opening device file
     
@@ -129,10 +156,37 @@ int* readArduino() {
                 data[i] = c;
                 i++;
             }                
-
-            sleep(1);
+            if (i == 0) {
+                cout << "... ";
+                sleep(1);
+            } else
+                break;
         }
+        if (i > 0)
+            break;        
     }
     fclose(file);
-    return data;
+
+    // Get only the data we need
+    // ** Temporal, only works for two-digit numbers **
+    sprintf(tmp, "%c", data[1]);
+    data_final[0] = tmp[0];
+    sprintf(tmp, "%c", data[2]);
+    data_final[1] = tmp[0];
+    sprintf(tmp, "%c", data[4]);
+    data_final[2] = tmp[0];
+    sprintf(tmp, "%c", data[5]);
+    data_final[3] = tmp[0];
+    sprintf(tmp, "%c", data[7]);
+    data_final[4] = tmp[0];
+    sprintf(tmp, "%c", data[8]);
+    data_final[5] = tmp[0];
+
+    cout << "Data read from Arduino:\n";
+
+    for(i = 0; i < 6; i+=2) {        
+        cout << data_final[i] << data_final[i+1] << endl;
+    }
+
+    return data_final;
 }
