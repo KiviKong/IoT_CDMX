@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 
 #define PORT 8081
-#define ipAddress "18.222.104.109" // Public IP for the EC2 instance
+#define ipAddress "18.219.115.13" // Public IP for the EC2 instance
 
 using namespace std;
 
@@ -75,6 +75,7 @@ char* makeFrame(char* data) {
     string request_frame = "c0";
     // Device ID
     // ** Change for ID from data **
+    request_frame += "000000";
 
     char tmp[1];
     tmp[0] = data[0];
@@ -89,7 +90,7 @@ char* makeFrame(char* data) {
     request_frame += "01";
     // Package Length
     // Will remain the same size with only one command
-    request_frame += "13";
+    request_frame += "16";
 
     // Convert date and time to string
     request_frame += int_to_hex((1900 + ltm->tm_year)-2000);
@@ -118,6 +119,9 @@ char* makeFrame(char* data) {
     tmp_2 = atoi(tmp)*1;    
     int coord_y = tmp_1 + tmp_2;    
     request_frame += int_to_hex(coord_y);
+
+    // Frame end
+    request_frame += "c0";
 
     // Convert String to char array
     char* final_frame = new char[request_frame.length()];
