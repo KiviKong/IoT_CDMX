@@ -1,5 +1,4 @@
-<h1>C++ back back-end</h1>
+# IoT Ciudad de México
 
-# Comunicación con hardware
-# Comunicación con AWS
+Software encargado de leer las tarjetas RFD, armar el paquete de comunicación y mandarlo a aws.
 
