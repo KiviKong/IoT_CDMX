@@ -8,20 +8,23 @@
 #include <string>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <vector>
+#include <math.h>
 
 #define PORT 8081
-#define ipAddress "18.219.115.13" // Public IP for the EC2 instance
+#define IP_ADDRESS "18.219.115.13" // Public IP for the EC2 instance
+#define MODULE_LOCATION "0102"
 
 using namespace std;
 
 int sendMessage(char* message);
-char* makeFrame(char* data);
+char* makeFrame(vector<int> data);
 string int_to_hex(int n);
-char* readArduino();
+vector<int> readArduino();
 
 
 int main() {    
-    char* data;
+    vector<int> data;
     char* request_frame;
 
     // ** Wait until we have some input from arduino **
@@ -50,7 +53,7 @@ int sendMessage(char* message) {
     serv_addr.sin_port = htons(PORT);
       
     // Convert IPv4 and IPv6 addresses from text to binary form
-    if(inet_pton(AF_INET, ipAddress, &serv_addr.sin_addr)<=0) {
+    if(inet_pton(AF_INET, IP_ADDRESS, &serv_addr.sin_addr)<=0) {
         printf("\nInvalid address/ Address not supported \n");
         return -1;
     }
@@ -65,7 +68,7 @@ int sendMessage(char* message) {
     return 0;
 }
 
-char* makeFrame(char* data) {
+char* makeFrame(vector<int> data) {
     // Current date/time based on current system
     time_t now = time(0);
     // Convert now to tm struct
@@ -74,22 +77,13 @@ char* makeFrame(char* data) {
     // Frame start
     string request_frame = "c0";
     // Device ID
-    // ** Change for ID from data **
     request_frame += "000000";
-
-    char tmp[1];
-    tmp[0] = data[0];
-    int tmp_1 = atoi(tmp)*10;    
-    tmp[0] = data[1];
-    int tmp_2 = atoi(tmp)*1;    
-    int id = tmp_1 + tmp_2;
-
-    request_frame += int_to_hex(id);
+    request_frame += int_to_hex(data[0]);
     // Command
-    // Only one command at the time
+    // ** Only one command at the time **
     request_frame += "01";
     // Package Length
-    // Will remain the same size with only one command
+    // ** Will remain the same size with only one command **
     request_frame += "16";
 
     // Convert date and time to string
@@ -100,25 +94,11 @@ char* makeFrame(char* data) {
     request_frame += int_to_hex(ltm->tm_min);
     request_frame += int_to_hex(ltm->tm_sec);
 
-    // Coordinates
-    // ** Change with coordinates from data **
-
     // Coordinates X and Y (module location)
-    request_frame += "0102";
-    // Coordinate X (destination)
-    tmp[0] = data[2];
-    tmp_1 = atoi(tmp)*10;    
-    tmp[0] = data[3];
-    tmp_2 = atoi(tmp)*1;    
-    int coord_x = tmp_1 + tmp_2;
-    request_frame += int_to_hex(coord_x);
-    //Coordinate Y (destination)
-    tmp[0] = data[4];
-    tmp_1 = atoi(tmp)*10;    
-    tmp[0] = data[5];
-    tmp_2 = atoi(tmp)*1;    
-    int coord_y = tmp_1 + tmp_2;    
-    request_frame += int_to_hex(coord_y);
+    request_frame += MODULE_LOCATION;
+    // Destination coordinates
+    request_frame += int_to_hex(data[1]);
+    request_frame += int_to_hex(data[2]);
 
     // Frame end
     request_frame += "c0";
@@ -143,54 +123,49 @@ string int_to_hex(int num) {
     return string(result);
 }
 
-char* readArduino() {
+vector<int> readArduino() {
     FILE *file;
-    int c, i = 0;
-    int* data = new int[20];
-    char* data_final = new char[7];
-    char* tmp = new char;
+    vector<int> data, data_final;
+    int c;
 
     file = fopen("/dev/ttyACM0","rb");  // Opening device file
     
     while(1) {
         if (file) {    
             while ((c = getc(file)) != EOF) {
-                putchar(c);
-                // Stores read data into char array
-                data[i] = c;
-                i++;
+                char tmp = c;
+                putchar(c);                
+                // Stores read data into int list
+                if(c != 32 && c != 13 && c != 10) {                    
+                    data.push_back(atoi(&tmp));
+                }
             }                
-            if (i == 0) {
+            if (data.empty()) {
                 cout << "... ";
                 sleep(1);
             } else
                 break;
         }
-        if (i > 0)
+        if (!data.empty())
             break;        
     }
     fclose(file);
-
-    // Get only the data we need
-    // ** Temporal, only works for two-digit numbers **
-    sprintf(tmp, "%c", data[1]);
-    data_final[0] = tmp[0];
-    sprintf(tmp, "%c", data[2]);
-    data_final[1] = tmp[0];
-    sprintf(tmp, "%c", data[4]);
-    data_final[2] = tmp[0];
-    sprintf(tmp, "%c", data[5]);
-    data_final[3] = tmp[0];
-    sprintf(tmp, "%c", data[7]);
-    data_final[4] = tmp[0];
-    sprintf(tmp, "%c", data[8]);
-    data_final[5] = tmp[0];
-
+    
     cout << "Data read from Arduino:\n";
 
-    for(i = 0; i < 6; i+=2) {        
-        cout << data_final[i] << data_final[i+1] << endl;
+    // Converts to actual numbers
+    for (int i = 0, digit_length = data.size()/3; i < data.size(); i += digit_length) {
+        double digit_acc = 0;
+
+        for (int p = 0, j = i + digit_length-1; p < digit_length; p++, j--) {
+            digit_acc += data[j] * pow(10.0, p);
+        }
+
+        data_final.push_back((int) digit_acc);
+
+        cout << data_final[data_final.size()-1] << endl;
     }
+    cout << endl;
 
     return data_final;
 }
