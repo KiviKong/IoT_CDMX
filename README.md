@@ -1,5 +1,4 @@
-<h1>C++ back back-end</h1>
+# IoT Ciudad de México
 
-#comunicación con hardware
-#comunicación con AWS
+Software encargado de leer las tarjetas RFID, armar el paquete de comunicación y mandarlo hacia AWS.
 
