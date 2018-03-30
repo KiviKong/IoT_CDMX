@@ -12,7 +12,7 @@
 #include <math.h>
 
 #define PORT 8081
-#define IP_ADDRESS "18.219.115.13" // Public IP for the EC2 instance
+#define IP_ADDRESS "18.188.108.24" // Public IP for the EC2 instance
 #define MODULE_LOCATION "0102"
 
 using namespace std;
